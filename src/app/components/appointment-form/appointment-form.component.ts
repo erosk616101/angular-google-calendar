@@ -1,222 +1,457 @@
+import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { Component, Inject, Optional } from "@angular/core";
-import {
-  FormBuilder,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from "@angular/forms";
-import { MatButtonModule } from "@angular/material/button";
-import {
-  DateAdapter,
-  MAT_DATE_FORMATS,
-  MAT_DATE_LOCALE,
-  MatNativeDateModule,
-  NativeDateAdapter,
-} from "@angular/material/core";
-import { MatDatepickerModule } from "@angular/material/datepicker";
-import {
-  MAT_DIALOG_DATA,
-  MatDialogModule,
-  MatDialogRef,
-} from "@angular/material/dialog";
-import { MatFormFieldModule } from "@angular/material/form-field";
-import { MatIconModule } from "@angular/material/icon";
-import { MatInputModule } from "@angular/material/input";
-import { MatSelectModule } from "@angular/material/select";
+import { FormsModule } from "@angular/forms";
 import { Appointment } from "../../models/appointment.model";
 
 @Component({
   selector: "app-appointment-form",
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatDatepickerModule,
-    MatButtonModule,
-    MatNativeDateModule,
-    MatDialogModule,
-    MatSelectModule,
-    MatIconModule,
-  ],
-  providers: [
-    MatDatepickerModule,
-    { provide: DateAdapter, useClass: NativeDateAdapter },
-    { provide: MAT_DATE_LOCALE, useValue: "en-US" },
-    {
-      provide: MAT_DATE_FORMATS,
-      useValue: {
-        parse: {
-          dateInput: "MM/DD/YYYY",
-        },
-        display: {
-          dateInput: "MM/DD/YYYY",
-          monthYearLabel: "MMM YYYY",
-          dateA11yLabel: "LL",
-          monthYearA11yLabel: "MMMM YYYY",
-        },
-      },
-    },
-  ],
+  imports: [CommonModule, FormsModule],
   template: `
-    <div class="appointment-form">
-      <h2 mat-dialog-title>{{ isEdit ? "Edit" : "New" }} Event</h2>
-
-      <form [formGroup]="appointmentForm" (ngSubmit)="onSubmit()">
-        <mat-form-field appearance="outline" class="form-field-full">
-          <mat-label>Title</mat-label>
-          <input matInput formControlName="title" required />
-          <mat-error *ngIf="appointmentForm.get('title')?.hasError('required')">
-            Title is required
-          </mat-error>
-        </mat-form-field>
-
-        <div class="date-time-container">
-          <mat-form-field appearance="outline">
-            <mat-label>Date</mat-label>
-            <input
-              matInput
-              [matDatepicker]="picker"
-              formControlName="date"
-              required
-            />
-            <mat-datepicker-toggle
-              matSuffix
-              [for]="picker"
-            ></mat-datepicker-toggle>
-            <mat-datepicker #picker></mat-datepicker>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Time</mat-label>
-            <input matInput type="time" formControlName="time" required />
-          </mat-form-field>
+    <div
+      class="modal-overlay"
+      (click)="onOverlayClick($event)"
+      (keydown)="onOverlayKeydown($event)"
+      tabindex="0"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div class="modal-content">
+        <div
+          class="modal-header"
+          [style.background-color]="formData.color || '#4285F4'"
+        >
+          <h2 id="modal-title">
+            {{ isEditMode ? "Edit Appointment" : "New Appointment" }}
+          </h2>
+          <button class="close-button" (click)="onCancel()">×</button>
         </div>
 
-        <mat-form-field appearance="outline" class="form-field-full">
-          <mat-label>Description</mat-label>
-          <textarea matInput formControlName="description" rows="3"></textarea>
-        </mat-form-field>
+        <div class="modal-body">
+          <form (ngSubmit)="onSubmit()">
+            <div class="form-group">
+              <label for="title">Title</label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                [(ngModel)]="formData.title"
+                placeholder="Add title"
+                required
+                class="form-control"
+              />
+            </div>
 
-        <mat-form-field appearance="outline" class="form-field-full">
-          <mat-label>Color</mat-label>
-          <mat-select formControlName="color">
-            <mat-option value="#4285f4">Blue</mat-option>
-            <mat-option value="#0f9d58">Green</mat-option>
-            <mat-option value="#db4437">Red</mat-option>
-            <mat-option value="#f4b400">Yellow</mat-option>
-            <mat-option value="#ab47bc">Purple</mat-option>
-          </mat-select>
-        </mat-form-field>
+            <div class="form-row">
+              <div class="form-group half-width">
+                <label for="start">Start Date & Time</label>
+                <input
+                  type="datetime-local"
+                  id="start"
+                  name="start"
+                  [ngModel]="formatDateForInput(formData.start)"
+                  (ngModelChange)="formData.start = parseInputDate($event)"
+                  required
+                  class="form-control"
+                />
+              </div>
 
-        <div mat-dialog-actions align="end">
-          <button mat-button type="button" (click)="onCancel()">Cancel</button>
-          <button
-            mat-raised-button
-            color="primary"
-            type="submit"
-            [disabled]="!appointmentForm.valid"
-          >
-            {{ isEdit ? "Update" : "Create" }}
-          </button>
+              <div class="form-group half-width">
+                <label for="end">End Date & Time</label>
+                <input
+                  type="datetime-local"
+                  id="end"
+                  name="end"
+                  [ngModel]="formatDateForInput(formData.end)"
+                  (ngModelChange)="formData.end = parseInputDate($event)"
+                  required
+                  class="form-control"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="description">Description</label>
+              <textarea
+                id="description"
+                name="description"
+                [(ngModel)]="formData.description"
+                placeholder="Add description (optional)"
+                rows="3"
+                class="form-control"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="color">Color</label>
+              <div
+                class="color-selector"
+                role="radiogroup"
+                aria-label="Appointment color"
+              >
+                <button
+                  *ngFor="let color of colors; let i = index"
+                  class="color-option"
+                  type="button"
+                  [attr.id]="'color-' + i"
+                  [style.background-color]="color"
+                  [class.selected]="formData.color === color"
+                  (click)="selectColor(color)"
+                  (keydown)="onColorKeydown($event, color)"
+                  tabindex="0"
+                  role="radio"
+                  [attr.aria-checked]="formData.color === color"
+                  [attr.aria-label]="'Color ' + (i + 1)"
+                ></button>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button
+                *ngIf="isEditMode"
+                type="button"
+                class="delete-button"
+                (click)="onDelete()"
+              >
+                Delete
+              </button>
+              <div class="right-actions">
+                <button
+                  type="button"
+                  class="cancel-button"
+                  (click)="onCancel()"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="save-button"
+                  [disabled]="
+                    !formData.title || !formData.start || !formData.end
+                  "
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   `,
   styles: [
     `
-      .appointment-form {
-        padding: 16px;
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        outline: none;
       }
 
-      .form-field-full {
-        width: 100%;
+      .modal-content {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        width: 500px;
+        max-width: 95%;
+        max-height: 95vh;
+        overflow-y: auto;
+        animation: modal-appear 0.25s ease-out;
+      }
+
+      @keyframes modal-appear {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .modal-header {
+        padding: 16px 20px;
+        color: white;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-header h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 500;
+      }
+
+      .close-button {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+      }
+
+      .modal-body {
+        padding: 20px;
+      }
+
+      .form-group {
         margin-bottom: 16px;
       }
 
-      .date-time-container {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+      .form-row {
+        display: flex;
         gap: 16px;
         margin-bottom: 16px;
       }
 
-      mat-form-field {
-        width: 100%;
+      .half-width {
+        flex: 1;
+        margin-bottom: 0;
       }
 
-      .mat-mdc-dialog-actions {
-        padding: 16px 0 0;
-        margin-bottom: 0;
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        color: #5f6368;
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+      }
+
+      .form-control:focus {
+        outline: none;
+        border-color: #4285f4;
+      }
+
+      .color-selector {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .color-option {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: transform 0.2s;
+        position: relative;
+        outline: none;
+        border: none;
+        padding: 0;
+        background-color: transparent;
+      }
+
+      .color-option:hover,
+      .color-option:focus {
+        transform: scale(1.1);
+      }
+
+      .color-option.selected::after {
+        content: "";
+        position: absolute;
+        top: -3px;
+        left: -3px;
+        right: -3px;
+        bottom: -3px;
+        border: 2px solid #000;
+        border-radius: 50%;
+        opacity: 0.3;
+      }
+
+      .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 24px;
+      }
+
+      .right-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .save-button {
+        background-color: #1a73e8;
+        color: white;
+        border: none;
+      }
+
+      .save-button:hover {
+        background-color: #1765cc;
+      }
+
+      .save-button:disabled {
+        background-color: #dadce0;
+        cursor: not-allowed;
+      }
+
+      .cancel-button {
+        background-color: transparent;
+        border: 1px solid #dadce0;
+        color: #3c4043;
+      }
+
+      .cancel-button:hover {
+        background-color: #f1f3f4;
+      }
+
+      .delete-button {
+        background-color: transparent;
+        border: none;
+        color: #ea4335;
+      }
+
+      .delete-button:hover {
+        background-color: rgba(234, 67, 53, 0.1);
       }
     `,
   ],
 })
-export class AppointmentFormComponent {
-  appointmentForm: FormGroup;
-  isEdit: boolean = false;
+export class AppointmentFormComponent implements OnInit {
+  @Input() appointment: Appointment | null = null;
+  @Input() startDate: Date | null = null;
 
-  constructor(
-    private fb: FormBuilder,
-    private dialogRef: MatDialogRef<AppointmentFormComponent>,
-    @Optional() @Inject(MAT_DIALOG_DATA) private data: Appointment
-  ) {
-    this.isEdit = !!(data && data.id);
+  @Output() saveAppointment = new EventEmitter<Appointment>();
+  @Output() deleteAppointment = new EventEmitter<string>();
+  @Output() cancelForm = new EventEmitter<void>();
 
-    this.appointmentForm = this.fb.group({
-      title: ["", Validators.required],
-      date: [new Date(), Validators.required],
-      time: ["09:00", Validators.required],
-      description: [""],
-      color: ["#4285f4"],
-    });
+  formData: Partial<Appointment> = {
+    title: "",
+    start: new Date(),
+    end: new Date(),
+    description: "",
+    color: "#4285F4",
+  };
 
-    if (data) {
-      if (this.isEdit) {
-        const date = new Date(this.data.date);
-        this.appointmentForm.patchValue({
-          ...this.data,
-          date: date,
-          time: `${date.getHours().toString().padStart(2, "0")}:${date
-            .getMinutes()
-            .toString()
-            .padStart(2, "0")}`,
-        });
-      } else if (data.date) {
-        const date = new Date(data.date);
-        this.appointmentForm.patchValue({
-          date: date,
-          time: `${date.getHours().toString().padStart(2, "0")}:${date
-            .getMinutes()
-            .toString()
-            .padStart(2, "0")}`,
-        });
-      }
+  isEditMode = false;
+
+  colors: string[] = [
+    "#4285F4",
+    "#DB4437",
+    "#F4B400",
+    "#0F9D58",
+    "#8430CE",
+    "#FF6D01",
+    "#46BDC6",
+    "#616161",
+  ];
+
+  ngOnInit(): void {
+    this.isEditMode = !!this.appointment?.id;
+
+    if (this.appointment) {
+      this.formData = { ...this.appointment };
+    } else if (this.startDate) {
+      const endDate = new Date(this.startDate);
+      endDate.setHours(endDate.getHours() + 1);
+
+      this.formData.start = this.startDate;
+      this.formData.end = endDate;
+    } else {
+      const now = new Date();
+      now.setMinutes(Math.ceil(now.getMinutes() / 30) * 30);
+
+      const end = new Date(now);
+      end.setHours(end.getHours() + 1);
+
+      this.formData.start = now;
+      this.formData.end = end;
     }
   }
 
+  onOverlayClick(event: MouseEvent): void {
+    if ((event.target as HTMLElement).classList.contains("modal-overlay")) {
+      this.onCancel();
+    }
+  }
+
+  onOverlayKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape") {
+      this.onCancel();
+    }
+  }
+
+  selectColor(color: string): void {
+    this.formData.color = color;
+  }
+
+  onColorKeydown(event: KeyboardEvent, color: string): void {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      this.formData.color = color;
+    }
+  }
+
+  formatDateForInput(date: Date | undefined): string {
+    if (!date) return "";
+
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    const hours = date.getHours().toString().padStart(2, "0");
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  parseInputDate(dateString: string): Date {
+    return new Date(dateString);
+  }
+
   onSubmit(): void {
-    if (this.appointmentForm.valid) {
-      const formValue = this.appointmentForm.value;
-      const [hours, minutes] = formValue.time.split(":");
-      const date = new Date(formValue.date);
-      date.setHours(parseInt(hours), parseInt(minutes));
+    if (!this.formData.title || !this.formData.start || !this.formData.end) {
+      return;
+    }
 
-      const appointment: Appointment = {
-        id: this.isEdit ? this.data.id : Date.now().toString(),
-        title: formValue.title,
-        date: date,
-        description: formValue.description,
-        color: formValue.color,
-      };
+    const appointmentData: Appointment = {
+      id: this.isEditMode ? this.appointment!.id : "",
+      title: this.formData.title,
+      start: this.formData.start!,
+      end: this.formData.end!,
+      description: this.formData.description,
+      color: this.formData.color,
+    };
 
-      this.dialogRef.close(appointment);
+    this.saveAppointment.emit(appointmentData);
+  }
+
+  onDelete(): void {
+    if (confirm("Are you sure you want to delete this appointment?")) {
+      this.deleteAppointment.emit(this.appointment!.id);
     }
   }
 
   onCancel(): void {
-    this.dialogRef.close();
+    this.cancelForm.emit();
   }
 }

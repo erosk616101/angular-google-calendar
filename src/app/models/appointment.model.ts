@@ -1,8 +1,9 @@
 export interface Appointment {
   id: string;
   title: string;
-  date: Date;
+  start: Date;
+  end: Date;
   description?: string;
-  color?: string;
   location?: string;
+  color?: string;
 }
