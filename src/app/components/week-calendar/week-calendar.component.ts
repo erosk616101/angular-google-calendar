@@ -211,14 +211,11 @@ import { DraggableDirective } from "../../directives/draggable.directive";
         min-height: 1152px; /* 24 hours * 48px */
         border-right: 1px solid #dadce0;
         outline: none;
+        cursor: pointer;
       }
 
       .day-column.today {
         background-color: #f8f9fa;
-      }
-
-      .day-column:focus {
-        background-color: #f1f3f4;
       }
 
       .appointment-item {
